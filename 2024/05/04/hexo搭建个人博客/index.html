@@ -158,7 +158,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ npm install hexo-cli -g</span><br><span class="line">$ hexo init blog <span class="comment">#这里的blog是博客的名字</span></span><br><span class="line">$ <span class="built_in">cd</span> blog</span><br><span class="line">$ npm install</span><br></pre></td></tr></table></figure>
 
 <p>创建项目后，目录结构如图所示：</p>
-<img src="/.io//05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image-1.png" class title="image-1">
+<img src="/2024/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image-1.png" class title="image-1">
 <p>其中主要关注scaffolds、source、themes目录以及_config.yml文件<br>其中<br>scaffolds：模板文件夹。当新建文章时，Hexo 会根据scaffold 来建立文件。Hexo 的模板是指在新建的markdown 文件中默认填充的内容（骨架）<br>例如：如果修改scaffold&#x2F;post.md 中的Front-matter 内容，那么每次新建一篇文章时都会包含这个修改<br>source：用来存放文章的源文件，其中_posts存放文章，而_images是我自己用来存放图片的目录<br>themes: 用来存放主题<br>_config.yml: 配置网站的基础参数</p>
 <h1 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h1><p>hexo new 可以快速创建一篇博客，会在&#x2F;blog&#x2F;source&#x2F;_posts&#x2F; 目录下创建Post.md文件。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;Post&quot;</span> <span class="comment">#Post是博客文件名</span></span><br></pre></td></tr></table></figure>
@@ -173,7 +173,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo clean</span><br></pre></td></tr></table></figure>
 
 <h1 id="部署到Github"><a href="#部署到Github" class="headerlink" title="部署到Github"></a>部署到Github</h1><p>部署到github很简单，首先在github创建一个新的仓库，仓库名一定要是用户名.github.io, 然后把部署后的网站push到仓库中就OK了。<br>可以在仓库的设置页面中的Pages选项中看到网站更详细的配置，注意选择的分支是master还是main分支。</p>
-<img src="/.io//05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image.png" class title="image">
+<img src="/2024/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image.png" class title="image">
 
 <p>另外还需要在部署之前修改_config.yml文件，如下所示：</p>
 <figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">deploy:</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">git</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">https://github.com/GOKINGD/gokingd.github.io.git</span></span><br><span class="line">  <span class="attr">branch:</span> <span class="string">master</span></span><br></pre></td></tr></table></figure>
@@ -191,7 +191,7 @@
 <figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">deploy:</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">git</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">root@1.2.3.4:/www/repo/hexo.git</span></span><br><span class="line">  <span class="attr">branch:</span> <span class="string">master</span></span><br></pre></td></tr></table></figure>
 <p>接下来，为了能够使用ip地址直接访问博客(<a target="_blank" rel="noopener" href="http://1.2.3.4/">http://1.2.3.4</a>) ,需要配置nginx</p>
 <h1 id="配置nginx"><a href="#配置nginx" class="headerlink" title="配置nginx"></a>配置nginx</h1><p>安装nginx安装后，需要修改默认网站页面，由于本地环境是ubuntu22.04lts，所以修改&#x2F;etc&#x2F;nginx&#x2F;sites-available&#x2F;default文件<br>root 后的地址改为博客网页的地址，也就是之前建立的&#x2F;www&#x2F;hexo目录</p>
-<img src="/.io//05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image-2.png" class title="image-2">
+<img src="/2024/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/05/04/hexo%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/image-2.png" class title="image-2">
 
 <h1 id="更换博客主题"><a href="#更换博客主题" class="headerlink" title="更换博客主题"></a>更换博客主题</h1><p>hexo支持各种主题，可以直接从官方主题库下载：<a target="_blank" rel="noopener" href="https://hexo.io/themes/">https://hexo.io/themes/</a><br>本站使用的是Butterfly主题，首先在themes目录下下载主题</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> -b master https://gitee.com/immyw/hexo-theme-butterfly.git themes/butterfly</span><br><span class="line">npm install hexo-renderer-pug hexo-renderer-stylus --save <span class="comment">#安装 pug 以及 stylus 的渲染器</span></span><br></pre></td></tr></table></figure>
