@@ -1,0 +1,267 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Linux源码解析--从开机加电到main函数 | GOKINGD</title><meta name="author" content="Shaoqian Jin"><meta name="copyright" content="Shaoqian Jin"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="摘要本文所参考的源码为linux0.11，对源码进行解析。 总体介绍说明一下整体的思路。首先启动bios，bios在内存中建立中断向量表和中断服务程序。然后bios会发出0x19中断，将软盘中的第一扇区加载到内存中。第一扇区对应的是bootsect.s程序，此时处于实模式状态下，该程序的作用是将软盘中的后续扇区加载到内存中来，也就是setup.s和system模块。bootsect.s先规划内存，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux源码解析--从开机加电到main函数">
+<meta property="og:url" content="https://gokingd.github.io/2024/07/12/Linux%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BB%8E%E5%BC%80%E6%9C%BA%E5%8A%A0%E7%94%B5%E5%88%B0main%E5%87%BD%E6%95%B0/index.html">
+<meta property="og:site_name" content="GOKINGD">
+<meta property="og:description" content="摘要本文所参考的源码为linux0.11，对源码进行解析。 总体介绍说明一下整体的思路。首先启动bios，bios在内存中建立中断向量表和中断服务程序。然后bios会发出0x19中断，将软盘中的第一扇区加载到内存中。第一扇区对应的是bootsect.s程序，此时处于实模式状态下，该程序的作用是将软盘中的后续扇区加载到内存中来，也就是setup.s和system模块。bootsect.s先规划内存，">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2024-07-12T14:06:07.000Z">
+<meta property="article:modified_time" content="2024-07-12T14:44:39.206Z">
+<meta property="article:author" content="Shaoqian Jin">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="源码解析">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://gokingd.github.io/2024/07/12/Linux%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BB%8E%E5%BC%80%E6%9C%BA%E5%8A%A0%E7%94%B5%E5%88%B0main%E5%87%BD%E6%95%B0/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.13.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.33/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Linux源码解析--从开机加电到main函数',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2024-07-12 22:44:39'
+}</script><script>(win=>{
+      win.saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+    
+      win.getScript = (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        script.onerror = reject
+        script.onload = script.onreadystatechange = function() {
+          const loadState = this.readyState
+          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+          script.onload = script.onreadystatechange = null
+          resolve()
+        }
+
+        Object.keys(attr).forEach(key => {
+          script.setAttribute(key, attr[key])
+        })
+
+        document.head.appendChild(script)
+      })
+    
+      win.getCSS = (url, id = false) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onerror = reject
+        link.onload = link.onreadystatechange = function() {
+          const loadState = this.readyState
+          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+          link.onload = link.onreadystatechange = null
+          resolve()
+        }
+        document.head.appendChild(link)
+      })
+    
+      win.activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })(window)</script><meta name="generator" content="Hexo 7.2.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">7</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><hr class="custom-hr"/></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="GOKINGD"><span class="site-name">GOKINGD</span></a></span><div id="menus"><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">Linux源码解析--从开机加电到main函数</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2024-07-12T14:06:07.000Z" title="发表于 2024-07-12 22:06:07">2024-07-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2024-07-12T14:44:39.206Z" title="更新于 2024-07-12 22:44:39">2024-07-12</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Linux/">Linux</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="Linux源码解析--从开机加电到main函数"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="摘要"><a href="#摘要" class="headerlink" title="摘要"></a>摘要</h1><p>本文所参考的源码为linux0.11，对源码进行解析。</p>
+<h1 id="总体介绍"><a href="#总体介绍" class="headerlink" title="总体介绍"></a>总体介绍</h1><p>说明一下整体的思路。首先启动bios，bios在内存中建立中断向量表和中断服务程序。然后bios会发出0x19中断，将软盘中的第一扇区加载到内存中。第一扇区对应的是bootsect.s程序，此时处于实模式状态下，该程序的作用是将软盘中的后续扇区加载到内存中来，也就是setup.s和system模块。bootsect.s先规划内存，然后在把自己从0x07C00的位置移动到0x90000后bootsect执行0x13中断，加载setup程序。setup加载进入内存后开始加载第三部分代码，即system模块，system模块由head.s汇编好的目标代码和操作系统用C语言编写好的内核程序编译成的目标代码链接而成。bootsect.s跳转到setup程序的内存地址，开始执行setup程序。setup程序的主要目的是为了进入保护模式。setup程序首先关中断，然后将system模块移动到内存的最开始位置0x00000,覆盖掉原先存放在此处的bios中断向量表和bios数据区。setup对idtr和gdtr进行初始化，即建立gdt和idt。接着打开A20，cpu进入32位寻址，寻址空间变成4GB。setup为了建立保护模式下的中断机制，接着对可编程中断控制器8259A进行重新编程。setup程序设置CR0寄存器的第0位为1，cpu的工作方式设置为保护模式，再通过jmpi 0,8 跳转至内核代码段，开始执行head.s。head程序创建内核分页机制，废除了原来setup创建的gdt和idt，创建了新的gdt,同时构造了中断描述符表，最后将main函数入口地址压栈，ret指令执行main函数。</p>
+<h1 id="bios启动"><a href="#bios启动" class="headerlink" title="bios启动"></a>bios启动</h1><p>下面详细地逐步分析。</p>
+<p>首先bios程序被固定在主板的一块很小的ROM芯片中。加电开始部件都进入16位实模式，CPU在加电瞬间CS置为0xFFFF,IP的值置为0x0000,这样CS:IP指向bios的入口地址0xFFFF0。bios启动之后会做检测显卡内存等一系列工作，然后在内存中建立中断向量表和中断服务程序。</p>
+<p>随后，计算机硬件体系结构与bios联手，让CPU收到int 0x19中断，中断向量把CPU指向0x0E6F2，这是对应的中断服务程序的入口地址，中断服务程序将软盘中的第一扇区加载到内存中。第一扇区中的程序是由bootsect.s中的汇编代码汇编而成，bootsect会将软盘中的后续代码载入内存。</p>
+<p>随后开始执行bootsect.s （boot&#x2F;bootsect.s） 该汇编类似于intel汇编</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">SYSSIZE = 0x3000    !给出system模块的大小 0x3000字节=192KB</span><br><span class="line"></span><br><span class="line">.globl begtext, begdata, begbss, endtext, enddata, endbss !定义6个全局标识符</span><br><span class="line">.text                                        !文本段</span><br><span class="line">begtext:                                     </span><br><span class="line">.data                                        !数据段</span><br><span class="line">begdata:                                     </span><br><span class="line">.bss                                         !未初始化数据段</span><br><span class="line">begbss:                                        </span><br><span class="line">.text                                        !文本段</span><br><span class="line"></span><br><span class="line">SETUPLEN = 4					! nr of setup-sectors setup程序的扇区数</span><br><span class="line">BOOTSEG  = 0x07c0			! original address of boot-sector bootsect的起始地址</span><br><span class="line">INITSEG  = 0x9000			! we move boot here - out of the way  bootsect移动的目标地址</span><br><span class="line">SETUPSEG = 0x9020			! setup starts here                  setup程序的起始地址</span><br><span class="line">SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).   system模块的起始加载地址</span><br><span class="line">ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading           system模块的终止地址</span><br></pre></td></tr></table></figure>
+<p>然后指定根文件系统设备时第2个硬盘的第一个分区</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ROOT_DEV = 0x306</span><br></pre></td></tr></table></figure>
+<p>在规划好内存后，bootsect要把自己从0x07C00移动到0x90000</p>
+<p>因为8068&#x2F;8088规定段寄存器不能直接赋值，必须要由寄存器给他传值，因此想初始化数据段首地址必须要由ax中转一下。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">entry start                            !从start标号开始</span><br><span class="line">start:</span><br><span class="line">	mov	ax,#BOOTSEG                    !代码段寄存器指向BOOTSEG</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	ax,#INITSEG                    !附加段寄存器指向INITSEG</span><br><span class="line">	mov	es,ax</span><br><span class="line">	mov	cx,#256</span><br><span class="line">	sub	si,si                          !源地址ds:si = 0x07C0:0x0000</span><br><span class="line">	sub	di,di                          !目的地址es:di = 0x9000:0x0000</span><br><span class="line">	rep</span><br><span class="line">	movw                              !每次移动一个字，一共移动256个字，这是bootsect的全部大小</span><br><span class="line">	jmpi	go,INITSEG              !因为循环后已经移过去了，所以之间跳转到INITSEG为基址go段处</span><br><span class="line">go:	mov	ax,cs                         !段对齐</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	es,ax</span><br><span class="line">! put stack at 0x9ff00.</span><br><span class="line">	mov	ss,ax                          ! 讲栈基址寄存器设置为CS相同的位置，同时讲栈顶指针指向 </span><br><span class="line">                                         偏移地址0xFF00处</span><br><span class="line">	mov	sp,#0xFF00		! arbitrary value &gt;&gt;512</span><br></pre></td></tr></table></figure>
+<p>注意，压栈是由高地址到低地址，故栈顶指针选择在高地址处。即此时，在内存中开辟了一个栈，起始地址为0x9FF00,距离setup程序（0x90200 + 515B*4 ）有很大一部分栈空间。</p>
+<h1 id="bootsect程序"><a href="#bootsect程序" class="headerlink" title="bootsect程序"></a>bootsect程序</h1><p>接着bootsect执行0x13中断服务程序，加载setup程序到内存。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">load_setup:</span><br><span class="line">	mov	dx,#0x0000		! drive 0, head 0   前4行都是传参，确定setup模块在软盘中的位置</span><br><span class="line">	mov	cx,#0x0002		! sector 2, track 0</span><br><span class="line">	mov	bx,#0x0200		! address = 512, in INITSEG</span><br><span class="line">	mov	ax,#0x0200+SETUPLEN	! service 2, nr of sectors</span><br><span class="line">	int	0x13			! read it</span><br><span class="line">	jnc	ok_load_setup		! ok - continue   ！执行成功了就跳转到ok_load_setup</span><br><span class="line">	mov	dx,#0x0000</span><br><span class="line">	mov	ax,#0x0000		! reset the diskette</span><br><span class="line">	int	0x13</span><br><span class="line">	j	load_setup</span><br></pre></td></tr></table></figure>
+<p> 中断int 0x13将setup模块从磁盘的第2个扇区读到0x90200处，共4个扇区，如果成功，就执行ok_load_setup，在ok_load_setup通过jmpi 0,SETUPSEG跳转到setup程序，如果失败，则复位寄存器，重新执行int 0x13中断读取setup。</p>
+<p>ok_load_setup中代码较长，故略过一些对理解启动操作系统无关的代码。</p>
+<p>下面的代码会在屏幕中显示’Loading system …’</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">! Print some inane message</span><br><span class="line"></span><br><span class="line">	mov	ah,#0x03		! read cursor pos</span><br><span class="line">	xor	bh,bh</span><br><span class="line">	int	0x10</span><br><span class="line">	</span><br><span class="line">	mov	cx,#24</span><br><span class="line">	mov	bx,#0x0007		! page 0, attribute 7 (normal)</span><br><span class="line">	mov	bp,#msg1</span><br><span class="line">	mov	ax,#0x1301		! write string, move cursor</span><br><span class="line">	int	0x10</span><br></pre></td></tr></table></figure>
+<p>然后调用read_it 读system模块</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">   mov	ax,#SYSSEG   </span><br><span class="line">mov	es,ax		! segment of 0x010000</span><br><span class="line">call	read_it   !读磁盘上的system模块</span><br><span class="line">call	kill_motor  !关闭驱动器马达</span><br></pre></td></tr></table></figure>
+<p>最后加载一些程序后，执行</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jmpi	0,SETUPSEG</span><br></pre></td></tr></table></figure>
+<p>跳转到setup程序继续执行，至此bootsect程序全部执行完毕。事实上，bootsect一共有256行代码，这行是在135行，后面的一百多行代码都是一些子程序，故在此也不说明了。</p>
+<h1 id="setup-s执行"><a href="#setup-s执行" class="headerlink" title="setup.s执行"></a>setup.s执行</h1><p>随后是setup.s的执行（boot&#x2F;setup.s）汇编方式同bootsect，类似于intel的x86汇编</p>
+<p>setup.s开头的代码时加载一些机器系统的数据到内存的0x90000~0x901FD处，此时将bootsect程序给覆盖掉了。</p>
+<p>接着setup关中断，直到main函数中才会打开中断。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cli			! no interrupts allowed !</span><br></pre></td></tr></table></figure>
+<p>接着，setup将原来加载在0x10000处的system模块(内核程序)移动到0x00000处</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">	mov	ax,#0x0000</span><br><span class="line">	cld			! &#x27;direction&#x27;=0, movs moves forward</span><br><span class="line">do_move:</span><br><span class="line">	mov	es,ax		! destination segment  目的地址：ds:di (0x0000:0x0)</span><br><span class="line">	add	ax,#0x1000</span><br><span class="line">	cmp	ax,#0x9000</span><br><span class="line">	jz	end_move</span><br><span class="line">	mov	ds,ax		! source segment 源地址：ds:si (0x1000:0x0)</span><br><span class="line">	sub	di,di</span><br><span class="line">	sub	si,si</span><br><span class="line">	mov 	cx,#0x8000   !移动0x8000字</span><br><span class="line">	rep</span><br><span class="line">	movsw        !移动一个字</span><br><span class="line">	jmp	do_move</span><br></pre></td></tr></table></figure>
+<p>移动之后，内核程序将覆盖原先存放在0x00000处的由bios建立ide中断向量表和bios数据区，这样操作系统将不具备响应中断的能力，这也是为什么要关中断的原因。在移动system模块的时候，移动0x8000字，即从0x10000到0x90000,这是因为system模块最大长度不会超过0x80000(512k),故bootsect会把自己移动到0x90000，并加载setup到其后面。</p>
+<p>接着setup要初始化GDT和IDT。简单说，GDT(全局描述符表)是系统中存放段描述符的数组。其中存放着每一个人物的局部描述符表LDT和任务状态段TSS。IDT(中断描述符表)为保护模式下所有中断程序的入口地址，类似于实模式下的中断向量表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">end_move:</span><br><span class="line">	mov	ax,#SETUPSEG	! right, forgot this at first. didn&#x27;t work :-)</span><br><span class="line">	mov	ds,ax           ! 先让ds指向setup段</span><br><span class="line">	lidt	idt_48		! load idt with 0,0   !加载中断描述符表寄存器</span><br><span class="line">	lgdt	gdt_48		! load gdt with whatever appropriate !加载全局描述符表寄存器</span><br><span class="line"></span><br><span class="line"> ...(省略一部分)</span><br><span class="line"></span><br><span class="line">gdt:</span><br><span class="line">	.word	0,0,0,0		! dummy</span><br><span class="line"></span><br><span class="line">	.word	0x07FF		! 8Mb - limit=2047 (2048*4096=8Mb)</span><br><span class="line">	.word	0x0000		! base address=0</span><br><span class="line">	.word	0x9A00		! code read/exec</span><br><span class="line">	.word	0x00C0		! granularity=4096, 386 </span><br><span class="line"> !上面是GDT的第二项，系统代码段</span><br><span class="line"></span><br><span class="line">	.word	0x07FF		! 8Mb - limit=2047 (2048*4096=8Mb)</span><br><span class="line">	.word	0x0000		! base address=0</span><br><span class="line">	.word	0x9200		! data read/write</span><br><span class="line">	.word	0x00C0		! granularity=4096, 386</span><br><span class="line"> !上面是GDT的第三项，系统数据段</span><br><span class="line"></span><br><span class="line">idt_48:</span><br><span class="line">	.word	0			! idt limit=0</span><br><span class="line">	.word	0,0			! idt base=0L</span><br><span class="line"></span><br><span class="line">gdt_48:</span><br><span class="line">	.word	0x800		! gdt limit=2048, 256 GDT entries</span><br><span class="line">	.word	512+gdt,0x9	! gdt base = 0X9xxxx</span><br></pre></td></tr></table></figure>
+
+<p>对上面这段代码稍做解读。 首先lidt 和 lgdt 。 这里的l都是load的意思，表示加载，就是把gdt_48代表的6位操作数加载到寄存器中，即gdt的入口地址。那么转到后文去看idt_48段和gdt_48段。他们的格式统一，理解为前两个字节为段限长，后两个字节为段基址，段基址又由基址和偏移量组成。</p>
+<p>0x800&#x3D;8*16^2&#x3D;2048&#x3D;2k字节 GDT中8个字节组成一个段描述符项，所以GDT一共256项。      .word 512+gdt,0x9 其实就是 0x90200+gdt 就是setup段中的gdt段，gdt段就是前面的代码。在初始化gdt时，第一个项为空，第二项为系统代码段，第三项为系统数据段。</p>
+<p>这里放张图更好理解<br>​​<br><img src="/images/Linux-image1.png" alt="label"></p>
+<p> 然后打开A20，CPU可以进行32位寻址，最大寻址空间为4GB，接着setup程序对可编程中断控制器8259A进行重新编程。这里的代码省略，不做过多讲解。</p>
+<p>接着，setup程序将cr0寄存器的第0位（PE）置1，设定处理器的工作方式为保护模式。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mov	ax,#0x0001	! protected mode (PE) bit</span><br><span class="line">lmsw	ax		! This is it!</span><br></pre></td></tr></table></figure>
+<p> 最后，jmpi 0,8 进入system模块，执行head.s</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jmpi	0,8		! jmp offset 0 of segment 8 (cs)</span><br></pre></td></tr></table></figure>
+<p>这里的0表示的是段内偏移地址，8指的是保护模式下的段选择符。这里的8不能看出十进制的8，而应该看成二进制的1000。 这里段选择符后两位表示特权级，如果是0表示内核特权级，3表示用户特权级，即二进制的11。第三位0表示GDT，1表示LDT。1表示GDT的1项，也就是第2项，就是之前设定的GDT中的内核代码段。这表示setup到此正式结束了，将要跳转到内核代码段system模块中的head.s程序继续执行。</p>
+<h1 id="head-s"><a href="#head-s" class="headerlink" title="head.s"></a>head.s</h1><p>随后开始执行head.s(boot&#x2F;head.s),这里head.s与前两个汇编程序的语法不同，这里采用的是AT&amp;T的汇编格式。</p>
+<p>head程序之所以叫head，是因为他位于system模块的最开始的地方，也是整个内存空间的起始位置处。head程序在内存中占有25KB+184B的空间。</p>
+<p>首先先做段对齐，让DS、ES、FS、GS等寄存器指向内核代码段的起始地址。但是其实这里不能叫段对齐，此时已经进入保护模式，在实模式下CS是代码段基址，保护模式下CS是代码段选择符。所以下面代码中的0x10也应该看成二进制00010000，最后两位00表示内核特权级，第三位0表示是GDT，第4、第5位的10表示是GDT表的2项。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	movl $0x10,%eax</span><br><span class="line">	mov %ax,%ds</span><br><span class="line">	mov %ax,%es</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	mov %ax,%gs</span><br></pre></td></tr></table></figure>
+<p>同样的思路，SS转变为栈段选择符，esp为栈顶指针。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lss _stack_start,%esp</span><br></pre></td></tr></table></figure>
+<p>这里在汇编中的以下划线开头的变量是C语言中定义的变量。而stack_start是在kernal&#x2F;shed.c中定义的一个长指针，指向user_stack.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">long</span> user_stack [ PAGE_SIZE&gt;&gt;<span class="number">2</span> ] ;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">	<span class="type">long</span> * a;</span><br><span class="line">	<span class="type">short</span> b;</span><br><span class="line">	&#125; stack_start = &#123; &amp; user_stack [PAGE_SIZE&gt;&gt;<span class="number">2</span>] , <span class="number">0x10</span> &#125;;</span><br></pre></td></tr></table></figure>
+<p>接着调用setup_idt，重新建立idt中断描述符表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">call setup_idt</span><br><span class="line"></span><br><span class="line">setup_idt:</span><br><span class="line">	lea ignore_int,%edx</span><br><span class="line">	movl $0x00080000,%eax</span><br><span class="line">	movw %dx,%ax		/* selector = 0x0008 = cs */</span><br><span class="line">	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */</span><br><span class="line"></span><br><span class="line">	lea _idt,%edi</span><br><span class="line">	mov $256,%ecx</span><br></pre></td></tr></table></figure>
+<p>要理解上面这段代码首先要了解中断描述符的结构<br><img src="/images/Linux-image2.png" alt="label"></p>
+<p> 过程入口点偏移值就是中断服务程序的偏移地址。上面的32位要存入eax，下面的32位要存入edx。lea ignore_int，%edx 首先将ignore_int的偏移值存入edx，edx的低4字节是要放入eax的低4字节的，所以后面又movw %dx,%ax，不过这要放在后面执行，不然会被movl $0x00080000,%eax 覆盖。 然后movl $0x00080000,%eax 将0x00080000存入eax，再执行movw %dx,%ax 这样eax就做好了，最后再用0x8E00存入edx的低4字节，这样edx也做好了，整个中断描述符项就做好了。</p>
+<p>然后就是循环256次，将中断描述符表中的每一项(共256项)全部指向ignore_int中断门，然后会使用lidt加载中断描述符寄存器。其中ecx可以看成计数器，循环256次。ignore_int 中断门没有实际作用，起到占位的作用，后续main函数中会重新挂载中断程序。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">rp_sidt:</span><br><span class="line">	movl %eax,(%edi)</span><br><span class="line">	movl %edx,4(%edi)</span><br><span class="line">	addl $8,%edi</span><br><span class="line">	dec %ecx</span><br><span class="line">	jne rp_sidt</span><br><span class="line">	lidt idt_descr</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure>
+<p>然后就是废除已有的GDT，建立新的GDT。为什么要建立新的GDT，而不用原来setup中设计的GDT呢？这是因为setup程序所在的内存区域在将来设置缓冲区的时候会被覆盖，所以必须要重新建立一套GDT。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">call setup_gdt</span><br><span class="line"></span><br><span class="line">setup_gdt:</span><br><span class="line">	lgdt gdt_descr   !加载全局描述符表寄存器</span><br><span class="line">	ret</span><br><span class="line"></span><br><span class="line">idt_descr:</span><br><span class="line">	.word 256*8-1		# idt contains 256 entries  </span><br><span class="line">	.long _idt          ! 6字节操作数，限长和基址</span><br><span class="line"></span><br><span class="line">_gdt:	.quad 0x0000000000000000	/* NULL descriptor */</span><br><span class="line">	.quad 0x00c09a0000000fff	/* 16Mb */</span><br><span class="line">	.quad 0x00c0920000000fff	/* 16Mb */</span><br><span class="line">	.quad 0x0000000000000000	/* TEMPORARY - don&#x27;t use */</span><br><span class="line">	.fill 252,8,0			/* space for LDT&#x27;s and TSS&#x27;s etc */</span><br><span class="line"></span><br><span class="line">!前四项，空项、内核代码段、内核数据段、空项</span><br><span class="line">!这里和前面setup设置GDT思路是一样的</span><br><span class="line">!不同的是，段线长变成了16MB，扩大了一倍</span><br><span class="line">接着重新做段对齐，就是让各个寄存器重新指向内核代码段，以及重新设置内核栈，因为修改了段限长</span><br><span class="line"></span><br><span class="line">movl $0x10,%eax		# reload all the segment registers</span><br><span class="line">	mov %ax,%ds		# after changing gdt. CS was already</span><br><span class="line">	mov %ax,%es		# reloaded in &#x27;setup_gdt&#x27;</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	mov %ax,%gs</span><br><span class="line">    lss _stack_start,%esp</span><br></pre></td></tr></table></figure>
+<p>接着就是检测A20地址线是否开启。如果A20没有打开，计算机仍然处于实模式下，寻址范围只有1MB，往0x100000写值回回滚到0x00000。所以比较这两个地方写入的值是否一致来检测A20地址先是否打开。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">xorl %eax,%eax      ！首先异或清零</span><br><span class="line">1:	incl %eax		# check that A20 really IS enabled</span><br><span class="line">	movl %eax,0x000000	# loop forever if it isn&#x27;t</span><br><span class="line">	cmpl %eax,0x100000</span><br><span class="line">	je 1b</span><br></pre></td></tr></table></figure>
+<p>然后检测x87协处理器是否打开，如果打开，设置为保护模式。这里不过多阐述。</p>
+<h1 id="内核分页并跳转main函数"><a href="#内核分页并跳转main函数" class="headerlink" title="内核分页并跳转main函数"></a>内核分页并跳转main函数</h1><p>然后head程序要进入最重要的两个步骤，内核分页以及转入main函数执行。head程序首先先将L6段和main函数压栈，这样内核分页执行完成后就可以直接出栈执行main函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">jmp after_page_tables</span><br><span class="line">after_page_tables:</span><br><span class="line">	pushl $0		# These are the parameters to main :-)</span><br><span class="line">	pushl $0</span><br><span class="line">	pushl $0</span><br><span class="line">	pushl $L6		# return address for main, if it decides to.</span><br><span class="line">	pushl $_main</span><br><span class="line">	jmp setup_paging</span><br><span class="line">L6:</span><br><span class="line">	jmp L6			# main should never return here, but</span><br><span class="line">				# just in case, we know what happens.</span><br></pre></td></tr></table></figure>
+<p>接着要进行内核分页。首先需要对5页内存进行清零，每页有1k个页表项，每项4字节，占4Kb，页目录表从0x000地址开始。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">setup_paging:</span><br><span class="line">	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */</span><br><span class="line">	xorl %eax,%eax</span><br><span class="line">	xorl %edi,%edi			/* pg_dir is at 0x000 */</span><br><span class="line">	cld;rep;stosl</span><br></pre></td></tr></table></figure>
+<p> 接着设置页目录表，$pg1+7表示0x00001007，是页目录表的第一项，则第一个页表所在的地址为：0x00001007 &amp; 0xffff000 &#x3D; 0x1000,第一个页表的属性为：0x00001007 &amp; 0x 00000fff &#x3D; 0x07表示该页存在、用户可读可写。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">.org 0x1000</span><br><span class="line">pg0:</span><br><span class="line"></span><br><span class="line">.org 0x2000</span><br><span class="line">pg1:</span><br><span class="line"></span><br><span class="line">.org 0x3000</span><br><span class="line">pg2:</span><br><span class="line"></span><br><span class="line">.org 0x4000</span><br><span class="line">pg3:</span><br><span class="line"></span><br><span class="line">movl $pg0+7,_pg_dir		/* set present bit/user r/w */</span><br><span class="line">	movl $pg1+7,_pg_dir+4		/*  --------- &quot; &quot; --------- */</span><br><span class="line">	movl $pg2+7,_pg_dir+8		/*  --------- &quot; &quot; --------- */</span><br><span class="line">	movl $pg3+7,_pg_dir+12		/*  --------- &quot; &quot; --------- */</span><br></pre></td></tr></table></figure>
+<p> 然后设置页表项，4个页表，一个页表1024个页表项 ，一共4096个页表项，恰好能够映射4096*4kb&#x3D;16MB的物理内存。每个页表项的内容是当前项所映射的物理内存地址+该页的标志。从最后一个页表的最后一项开始倒序填写。最后一页的最后一项是4092，所以是$pg3+4092。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">movl $pg3+4092,%edi</span><br><span class="line">	movl $0xfff007,%eax		/*  16Mb - 4096 + 7 (r/w user,p) */</span><br><span class="line">	std</span><br><span class="line">1:	stosl			/* fill pages backwards - more efficient :-) */</span><br><span class="line">	subl $0x1000,%eax</span><br><span class="line">	jge 1b</span><br></pre></td></tr></table></figure>
+<p>最后建立分页机制，设置页目录基址寄存器CR3，使之指向页目录表，再将CR0寄存的最高位置为1。因为CRO的最高位，即第32位，PG标志位，是分页机制控制位。当CR0中的PG标志置位时，CPU使用CR3指向的页目录和页表进行虚拟地址到物理地址的映射。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">xorl %eax,%eax		/* pg_dir is at 0x0000 */</span><br><span class="line">	movl %eax,%cr3		/* cr3 - page directory start */</span><br><span class="line">	movl %cr0,%eax</span><br><span class="line">	orl $0x80000000,%eax</span><br><span class="line">	movl %eax,%cr0		/* set paging (PG) bit */</span><br></pre></td></tr></table></figure>
+<p>最后，一句ret，跳入main函数执行。至此，汇编代码全部结束。</p>
+<h1 id="问题解答"><a href="#问题解答" class="headerlink" title="问题解答"></a>问题解答</h1><p>下面回答一下这些问题：</p>
+<p>1、bootsect、setup、head程序之间是怎么衔接的？给出代码证据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">jmpi	0,SETUPSEG    ! bootsect跳转至setup</span><br><span class="line"></span><br><span class="line">jmpi	0,8		! jmp offset 0 of segment 8 (cs)</span><br><span class="line">                ! 跳转至内核代码段的初始位置，即head的入口地址</span><br></pre></td></tr></table></figure>
+<p>2、setup程序里的cli是为了什么？</p>
+<p>cli关中断，为了防止在实模式的中断废除之后，保护模式的中断建立之前有中断影响。</p>
+<p>3、setup程序的最后是jmpi 0,8 为什么这个8不能简单的当作阿拉伯数字8看待？</p>
+<p>此时已经进入保护模式，这里的8是保护模式下的段选择符。8要看成二进制的1000，最后两位00表示内核特权级，第三位0表示GDT表，第四位1表示GDT中的第2项，即内核代码段。这样我们可以通用jmpi 0,8 跳转到内核代码段的起始地址执行head.s程序。</p>
+<p>4、打开A20和打开pe究竟是什么关系，保护模式不就是32位的吗？为什么还要打开A20？有必要吗？</p>
+<p>有必要。实模式下CPU的最大寻址为1MB，打开A20后CPU可以进行32位寻址，寻址空间扩展为4GB，而打开PE是打开保护模式，物理地址和线性地址一一对应。打开A20是打开PE的必要条件，而打开A20不一定需要打开PE。</p>
+<p>5、Linux是用C语言写的，为什么没有从main还是开始，而是先运行3个汇编程序，道理何在？</p>
+<p>普通的C语言编写的程序都是用户应用程序，运行在操作系统中计算机刚加电还没有加载操作系统程序，默认为16位实模式，与main函数执行需要的32位保护模式有一定的距离。需要借助bios加载三个汇编程序，然后利用这三个汇编程序完成内存规划、进入保护模式、建立IDT和GDT、设置分页机制等，然后才能在保护模式下调用main函数进行执行。</p>
+<p>6、为什么不用call，而是用ret“调用”main函数？画出调用路线图，给出代码证据。</p>
+<p>call指令会将EIP的值自动压栈，保护返回现场，然后执行被掉函数的程序。等到执行被调函数ret指令时，自动出栈给EIP并还原现场，继续执行call的下一条指令。但这对操作系统的main函数有点奇怪了，main函数是操作系统的，操作系统已经是最底层的系统，不需要再返回了。所以可以手动模拟call函数，先将main函数压栈，然后ret调用main函数，这样main函数就不需要ret了。</p>
+<p>路线图参考P39 in [1] 新设计团队. Linux内核设计的艺术[M]. 北京:机械工业出版社, 2014.</p>
+<p>代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">after_page_tables:</span><br><span class="line">	pushl $0		# These are the parameters to main :-)</span><br><span class="line">	pushl $0</span><br><span class="line">	pushl $0</span><br><span class="line">	pushl $L6		# return address for main, if it decides to.</span><br><span class="line">	pushl $_main</span><br><span class="line">	jmp setup_paging</span><br><span class="line">L6:</span><br><span class="line">	jmp L6			# main should never return here, but</span><br><span class="line">				# just in case, we know what happens.</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">setup_paging:</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	ret			/* this also flushes prefetch-queue */</span><br></pre></td></tr></table></figure>
+<p>7、保护模式的“保护”体现在哪里？</p>
+<p>打开保护模式后，CPU的寻址方式发生了变化，CPU寻址使用GDT获取代码段或者数据段的基址，保护模式通过段基址和段限长，防止了代码或者数据段的覆盖与代码段之间的访问越界等问题。同时保护模式引入了特权级的概念，用户特权级的代码无法访问内核特权级的代码和数据。</p>
+<p>8、特权级的目的和意义是什么？为什么特权级是基于段的？</p>
+<p>特权级是操作系统为了更好地管理内存空间及其访问控制而设的，提高了系统的安全性。</p>
+<p>操作系统把内核设计为最高特权级，把用户进程设计为最低特权级。这样操作系统可以访问GDT、LDT，而GDT、LDT是逻辑地址形成线性地址的关键，因为操作系统可以控制线性地址。物理地址是由内核将线性地址转换而成的，所以操作系统可以访问任何物理地址，而用户进程只能使用逻辑地址。</p>
+<p>在操作系统中，一般代码归为一个段，数据归为一个段，通过段选择符获取短的基址和特权级信息，特权级基于段，这样当段选择子具有不匹配的特权级时，按照特权级规则判断是否可以访问。特权级基于段可以有效禁止用户访问一些特殊指令。</p>
+<p>9、在setup程序里曾经设置过一次gdt，为什么在head程序中将其废弃，又重新设置了一个？为什么折腾两次，而不是一次搞好？</p>
+<p>原来的GDT所在的位置是在setup中设置的，将来setup模块的内存区域会在设计缓冲区时被覆盖，所以必须重新设计一套GDT。如果一次搞好，将setup中的GDT之间拷贝到head.s中的位置，那么后面移动system模块时会把他覆盖。如果先移动system模块，再复制GDT的内容，它又会把head.s对应的程序覆盖掉，而此时head.s还没有执行，所以必须要折腾两次。</p>
+<p>10、用户进程自己设计一套LDT表，并与GDT挂接，是否可行，为什么？</p>
+<p>显然不可以。GDT和LDT是CPU硬件认定的，这两个数据结构的首地址挂接在CPU的GDTR、LDTR两个寄存器上。同时，GDTR和LDTR的指令LGDT、LLDT只能在0特权级下运行，用户自己进程设计的LDT表，属于3特权级。</p>
+<p>11、保护模式、分页下，线性地址到物理地址的转化过程是什么？</p>
+<p>保护模式、分页下，线性地址通过MMU进行解析，以页目录表、页表、页面三级映射模式映射到物理地址。具体的转换过程为：每个线性地址长度为32位，MMU按照10-10-12的方式来识别地址值，分别解析为页目录号、页表项号、页面内偏移。CR3中存放着页目录表的基址，通过CR3找到页目录表，再找到页目录项，进而找到对应页表，寻找页表项，然后找到页面物理地址，最后加上12位页内偏移地址，形成最后的物理地址。</p>
+<p>12、为什么开始启动计算机的时候，执行的是BIOS代码而不是操作系统自身的代码？</p>
+<p>通常我们的用户程序是在操作系统上执行，操作系统会为应用程序创建进程并把应用程序的可执行代码加载到内存。但是在刚开始启动计算机时，操作系统还没有在内存中，需要先把操作系统加载到内存中，所以需要首先执行bios代码，来把操作系统加载到内存。</p>
+<p>13、为什么BIOS只加载了一个扇区，后续扇区却是由bootsect代码加载？为什么BIOS没有直接把所有需要加载的扇区都加载？</p>
+<p>对bios而言，约定在加电启动后，需要把扇区代码加载到0x7c00处，后续扇区则由bootsect代码加载，这些代码由编写系统的用户负责，与bios无关。这样构建的好处是统一设计和统一安排，简单有效。而且，如果需要使用bios全部加载完成后再执行，这样需要很长的时间，所以linux采用边执行边加载。</p>
+<p>14、为什么BIOS把bootsect加载到0x07c00，而不是0x00000？加载后又马上挪到0x90000处，是何道理？为什么不一次加载到位？</p>
+<p>因为历史原因，bios约定加载到0x07c00处。加载之后，依据系统对内存的规划，内核从0x0000开始，这样0x7c00后续可能会被覆盖，所以需要将其移动到0x90000。为什么不一次加载到位，这是因为历史遗留原因，根据约定，都需要初始加载到0x07c00。</p>
+<p>有不对的地方欢迎批评指正！</p>
+<h1 id="References"><a href="#References" class="headerlink" title="References"></a>References</h1><p>[1] 新设计团队. Linux内核设计的艺术[M]. 北京:机械工业出版社, 2014.<br>[2] 赵炯. Linux内核完全剖析[M]. 北京:机械工业出版社, 2008.</p>
+<p>​</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://gokingd.github.io">Shaoqian Jin</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://gokingd.github.io/2024/07/12/Linux%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BB%8E%E5%BC%80%E6%9C%BA%E5%8A%A0%E7%94%B5%E5%88%B0main%E5%87%BD%E6%95%B0/">https://gokingd.github.io/2024/07/12/Linux%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BB%8E%E5%BC%80%E6%9C%BA%E5%8A%A0%E7%94%B5%E5%88%B0main%E5%87%BD%E6%95%B0/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://gokingd.github.io" target="_blank">GOKINGD</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Linux/">Linux</a><a class="post-meta__tags" href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/">源码解析</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2024/07/07/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3cpp-%E5%BC%BA%E5%88%B6%E8%BD%AC%E6%8D%A2/" title="深入理解cpp-强制转换"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">深入理解cpp-强制转换</div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Shaoqian Jin</div><div class="author-info__description">山前山后各有哀愁，有风无风都不自由</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">7</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">7</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%91%98%E8%A6%81"><span class="toc-number">1.</span> <span class="toc-text">摘要</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E4%BD%93%E4%BB%8B%E7%BB%8D"><span class="toc-number">2.</span> <span class="toc-text">总体介绍</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#bios%E5%90%AF%E5%8A%A8"><span class="toc-number">3.</span> <span class="toc-text">bios启动</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#bootsect%E7%A8%8B%E5%BA%8F"><span class="toc-number">4.</span> <span class="toc-text">bootsect程序</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#setup-s%E6%89%A7%E8%A1%8C"><span class="toc-number">5.</span> <span class="toc-text">setup.s执行</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#head-s"><span class="toc-number">6.</span> <span class="toc-text">head.s</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E6%A0%B8%E5%88%86%E9%A1%B5%E5%B9%B6%E8%B7%B3%E8%BD%ACmain%E5%87%BD%E6%95%B0"><span class="toc-number">7.</span> <span class="toc-text">内核分页并跳转main函数</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E8%A7%A3%E7%AD%94"><span class="toc-number">8.</span> <span class="toc-text">问题解答</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#References"><span class="toc-number">9.</span> <span class="toc-text">References</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/07/12/Linux%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-%E4%BB%8E%E5%BC%80%E6%9C%BA%E5%8A%A0%E7%94%B5%E5%88%B0main%E5%87%BD%E6%95%B0/" title="Linux源码解析--从开机加电到main函数">Linux源码解析--从开机加电到main函数</a><time datetime="2024-07-12T14:06:07.000Z" title="发表于 2024-07-12 22:06:07">2024-07-12</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/07/07/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3cpp-%E5%BC%BA%E5%88%B6%E8%BD%AC%E6%8D%A2/" title="深入理解cpp-强制转换">深入理解cpp-强制转换</a><time datetime="2024-07-07T11:54:29.000Z" title="发表于 2024-07-07 19:54:29">2024-07-07</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/07/06/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3cpp-static/" title="深入理解cpp-static">深入理解cpp-static</a><time datetime="2024-07-06T06:09:07.000Z" title="发表于 2024-07-06 14:09:07">2024-07-06</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/06/20/Jmeter%E5%8E%8B%E6%B5%8B/" title="Jmeter压测">Jmeter压测</a><time datetime="2024-06-20T09:54:35.000Z" title="发表于 2024-06-20 17:54:35">2024-06-20</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/05/27/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3cpp-const/" title="深入理解cpp - const">深入理解cpp - const</a><time datetime="2024-05-27T15:47:56.000Z" title="发表于 2024-05-27 23:47:56">2024-05-27</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2024 By Shaoqian Jin</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.13.0"></script><script src="/js/main.js?v=4.13.0"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.33/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
